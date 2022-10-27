@@ -1,0 +1,53 @@
+version: "3.3"
+
+services:
+  proxy-traefik:
+    image: traefik:latest
+    restart: unless-stopped
+    container_name: proxy-traefik
+    networks:
+      - proxy
+    ports:
+      - "80:80"   # <== http
+      - "443:443" # <== https
+      - "8080:8080" # <== https
+    command:
+      - --global.sendAnonymousUsage=false
+      - --api.insecure=true                        #<== Enabling insecure api, NOT RECOMMENDED FOR PRODUCTION
+      - --api.dashboard=true                        #<== Enabling the dashboard to view services, middlewares, routers, etc...
+      - --log.level=DEBUG                                  #<== Log Settings (options: ERROR, DEBUG, PANIC, FATAL, WARN, INFO) (https://docs.traefik.io/observability/logs/)
+      - --log.filePath=/var/log/traefik/traefik.log       #<== Log Path
+      - --accesslog=true                                  #enable access logs
+      - --accesslog.filepath=/var/log/traefik/access.log  #<== Acces Log Path
+      - --providers.docker=true                     #<== Enabling docker as the provider for traefik (https://docs.traefik.io/providers/docker/#provider-configuration)
+      - --providers.docker.exposedbydefault=false   #<== Don't expose every container to traefik, only expose enabled ones
+      - --providers.file.directory=/config    #<== Referring to a dynamic configuration file
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80                                 #<== Defining an entrypoint for http on port :80 named web
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure   #<==\
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https   #<====== Redirect all http to https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true #<==/
+      - --entrypoints.websecure.address=:443                              #<== Defining an entrypoint for https on port :443 named websecure
+      - --serversTransport.insecureSkipVerify=true
+      - --certificatesresolvers.letsencrypt-legacy.acme.httpChallenge.entryPoint=web
+      - --certificatesresolvers.letsencrypt-legacy.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+      # - --certificatesresolvers.letsencrypt-legacy.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+      - --certificatesresolvers.letsencrypt-legacy.acme.preferredChain=ISRG Root X1
+      - --certificatesresolvers.letsencrypt-legacy.acme.keyType=EC384
+      - --certificatesresolvers.letsencrypt-legacy.acme.email=xxxxxx@xxxxx.com
+      - --certificatesresolvers.letsencrypt-legacy.acme.storage=./acme.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   #<== Volume for docker admin
+      - /var/log/traefik/:/var/log/traefik/            #<== Traefik Logs (for crowdsec)
+      - ./data/traefik/:/config #<== Volume for dynamic conf file. This file must exist! , **ref: "--providers.file.filename=/dynamic.yaml"
+      - ./acme.json:/acme.json
+    labels:
+    #### Labels define the behavior and rules of the traefik proxy for this container ####
+      - "traefik.enable=true"                                                    #<== Enable traefik on itself to view dashboard and assign subdomain to view it, **ref: "--providers.docker.exposedbydefault=false"
+      - "traefik.http.routers.traefik-secured.rule=Host(`traefik.domain.com`)"      #<== Set domain
+      - "traefik.http.routers.traefik-secured.entrypoints=websecure"             #<== Set entrypoint for https, **ref: "--entrypoints.websecure.address=:443"
+      - "traefik.http.routers.traefik-secured.service=api@internal"              #<== Enabling the api to be a service to access
+
+networks:
+  proxy:
+    external: true
