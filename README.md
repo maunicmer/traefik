@@ -2,8 +2,9 @@ Create and chmod 600 acme.json
 
 # Route example
 
-data/traefik/dynamic.yml 
+## data/traefik/dynamic.yml 
 
+```sh
 http:
   routers:
     host:
@@ -19,11 +20,13 @@ http:
      loadBalancer:
        servers:
          - url: 'http://172.16.1.2:80'
+```    
 
 
 
-data/traefik/config.yml
+## data/traefik/config.yml
 
+```sh
 http:
   middlewares:
     secureHeaders:
@@ -54,3 +57,4 @@ tls:
         - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
         - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
       minVersion: VersionTLS12
+```
